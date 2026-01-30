@@ -1,15 +1,21 @@
 import { useAuth } from "@/contexts/auth-context";
+import { useThemeColors } from "@/hooks/use-theme-colors";
 import { Redirect } from "expo-router";
-import { ActivityIndicator, StyleSheet, View } from "react-native";
+import { ActivityIndicator, StyleSheet } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 
 export default function Index() {
   const { isAuthenticated, isLoading } = useAuth();
+  const colors = useThemeColors();
 
   if (isLoading) {
     return (
-      <View style={styles.container}>
-        <ActivityIndicator size="large" color="#4A90E2" />
-      </View>
+      <SafeAreaView
+        style={styles.container}
+        edges={["top", "left", "right", "bottom"]}
+      >
+        <ActivityIndicator size="large" color={colors.primary} />
+      </SafeAreaView>
     );
   }
 
