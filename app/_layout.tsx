@@ -9,15 +9,19 @@ import {
 import { Stack } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import "react-native-reanimated";
+import { SafeAreaProvider } from "react-native-safe-area-context";
 
 import { AuthProvider } from "@/contexts/auth-context";
-import { useColorScheme } from "@/hooks/use-color-scheme";
+import {
+  ThemeProvider as CustomThemeProvider,
+  useTheme,
+} from "@/contexts/theme-context";
 
 function RootLayoutNav() {
-  const colorScheme = useColorScheme();
+  const { actualTheme } = useTheme();
 
   return (
-    <ThemeProvider value={colorScheme === "dark" ? DarkTheme : DefaultTheme}>
+    <ThemeProvider value={actualTheme === "dark" ? DarkTheme : DefaultTheme}>
       <Stack screenOptions={{ headerShown: false }}>
         <Stack.Screen name="index" options={{ headerShown: false }} />
         <Stack.Screen name="auth" options={{ headerShown: false }} />
@@ -30,15 +34,19 @@ function RootLayoutNav() {
           options={{ presentation: "modal", title: "Settings" }}
         />
       </Stack>
-      <StatusBar style="auto" />
+      <StatusBar style={actualTheme === "dark" ? "light" : "dark"} />
     </ThemeProvider>
   );
 }
 
 export default function RootLayout() {
   return (
-    <AuthProvider>
-      <RootLayoutNav />
-    </AuthProvider>
+    <SafeAreaProvider>
+      <CustomThemeProvider>
+        <AuthProvider>
+          <RootLayoutNav />
+        </AuthProvider>
+      </CustomThemeProvider>
+    </SafeAreaProvider>
   );
 }

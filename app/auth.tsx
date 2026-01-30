@@ -1,28 +1,119 @@
 import { useAuth } from "@/contexts/auth-context";
+import { useThemeColors } from "@/hooks/use-theme-colors";
 import { validatePasswordStrength } from "@/utils/encryption";
 import { Ionicons } from "@expo/vector-icons";
+import * as LocalAuthentication from "expo-local-authentication";
 import { useRouter } from "expo-router";
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
-    Alert,
-    KeyboardAvoidingView,
-    Platform,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View,
+  Alert,
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 
 export default function AuthScreen() {
   const { hasAccount, login, signup } = useAuth();
+  const colors = useThemeColors();
   const router = useRouter();
   const [isSignupMode, setIsSignupMode] = useState(!hasAccount);
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [biometricAvailable, setBiometricAvailable] = useState(false);
+  const [storedPassword, setStoredPassword] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!isSignupMode && hasAccount) {
+      checkBiometric();
+    }
+  }, [isSignupMode, hasAccount]);
+
+  const checkBiometric = async () => {
+    try {
+      console.log("[Biometric] Checking biometric availability...");
+      const compatible = await LocalAuthentication.hasHardwareAsync();
+      console.log("[Biometric] Hardware compatible:", compatible);
+
+      const enrolled = await LocalAuthentication.isEnrolledAsync();
+      console.log("[Biometric] User enrolled:", enrolled);
+
+      const AsyncStorage = (
+        await import("@react-native-async-storage/async-storage")
+      ).default;
+      const enabled = await AsyncStorage.getItem("biometric_enabled");
+      console.log("[Biometric] Setting enabled:", enabled);
+
+      const savedPassword = await AsyncStorage.getItem(
+        "cached_master_password",
+      );
+      console.log("[Biometric] Password cached:", !!savedPassword);
+
+      const isAvailable =
+        compatible && enrolled && enabled === "true" && !!savedPassword;
+      console.log("[Biometric] Final availability:", isAvailable);
+
+      setBiometricAvailable(isAvailable);
+      setStoredPassword(savedPassword);
+    } catch (error) {
+      console.error("[Biometric] Error checking biometric:", error);
+      setBiometricAvailable(false);
+    }
+  };
+
+  const handleBiometricAuth = async () => {
+    try {
+      console.log("[Biometric] Starting biometric authentication...");
+      console.log("[Biometric] Platform:", Platform.OS);
+      console.log("[Biometric] Has cached password:", !!storedPassword);
+
+      const result = await LocalAuthentication.authenticateAsync({
+        promptMessage: "Authenticate to access your passwords",
+        fallbackLabel: "Use master password",
+        disableDeviceFallback: false,
+      });
+
+      console.log("[Biometric] Authentication result:", result);
+
+      if (result.success && storedPassword) {
+        console.log(
+          "[Biometric] Authentication successful, attempting login...",
+        );
+        setIsLoading(true);
+        const success = await login(storedPassword);
+        console.log("[Biometric] Login result:", success);
+
+        if (success) {
+          console.log("[Biometric] Navigating to password manager");
+          router.replace("/password-manager");
+        } else {
+          console.error("[Biometric] Login failed with cached password");
+          Alert.alert(
+            "Error",
+            "Authentication failed. Please use your master password.",
+          );
+        }
+        setIsLoading(false);
+      } else {
+        console.log(
+          "[Biometric] Authentication not successful or no cached password",
+        );
+      }
+    } catch (error) {
+      console.error("[Biometric] Biometric auth error:", error);
+      Alert.alert(
+        "Error",
+        `Biometric authentication failed: ${error instanceof Error ? error.message : "Unknown error"}`,
+      );
+    }
+  };
 
   const handleAuth = async () => {
     if (!password) {
@@ -66,6 +157,25 @@ export default function AuthScreen() {
         );
       } else {
         console.log("Authentication successful!");
+        // Cache password for biometric auth if enabled
+        if (!isSignupMode) {
+          try {
+            console.log("[Biometric] Checking if should cache password...");
+            const AsyncStorage = (
+              await import("@react-native-async-storage/async-storage")
+            ).default;
+            const biometricEnabled =
+              await AsyncStorage.getItem("biometric_enabled");
+            console.log("[Biometric] Biometric enabled:", biometricEnabled);
+
+            if (biometricEnabled === "true") {
+              await AsyncStorage.setItem("cached_master_password", password);
+              console.log("[Biometric] Password cached successfully");
+            }
+          } catch (error) {
+            console.error("[Biometric] Error caching password:", error);
+          }
+        }
         // Navigate to password manager on success
         router.replace("/password-manager");
       }
@@ -81,121 +191,225 @@ export default function AuthScreen() {
   };
 
   return (
-    <KeyboardAvoidingView
-      behavior={Platform.OS === "ios" ? "padding" : "height"}
-      style={styles.container}
+    <SafeAreaView
+      style={[styles.safeArea, { backgroundColor: colors.background }]}
+      edges={["top", "left", "right", "bottom"]}
     >
-      <ScrollView contentContainerStyle={styles.scrollContent}>
-        <View style={styles.header}>
-          <Ionicons name="shield-checkmark" size={80} color="#4A90E2" />
-          <Text style={styles.title}>SecurePass</Text>
-          <Text style={styles.subtitle}>
-            {isSignupMode ? "Create your secure vault" : "Welcome back!"}
-          </Text>
-        </View>
-
-        <View style={styles.form}>
-          <Text style={styles.label}>Master Password</Text>
-          <View style={styles.passwordContainer}>
-            <TextInput
-              style={styles.input}
-              value={password}
-              onChangeText={setPassword}
-              placeholder="Enter your master password"
-              secureTextEntry={!showPassword}
-              autoCapitalize="none"
-              autoCorrect={false}
+      <KeyboardAvoidingView
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
+        style={[styles.container, { backgroundColor: colors.background }]}
+      >
+        <ScrollView contentContainerStyle={styles.scrollContent}>
+          <View style={styles.header}>
+            <Ionicons
+              name="shield-checkmark"
+              size={80}
+              color={colors.primary}
             />
-            <TouchableOpacity
-              style={styles.eyeIcon}
-              onPress={() => setShowPassword(!showPassword)}
-            >
-              <Ionicons
-                name={showPassword ? "eye-off" : "eye"}
-                size={24}
-                color="#666"
-              />
-            </TouchableOpacity>
+            <Text style={[styles.title, { color: colors.text }]}>
+              SecurePass
+            </Text>
+            <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
+              {isSignupMode ? "Create your secure vault" : "Welcome back!"}
+            </Text>
           </View>
 
-          {isSignupMode && (
-            <>
-              <Text style={styles.label}>Confirm Password</Text>
-              <View style={styles.passwordContainer}>
-                <TextInput
-                  style={styles.input}
-                  value={confirmPassword}
-                  onChangeText={setConfirmPassword}
-                  placeholder="Confirm your master password"
-                  secureTextEntry={!showPassword}
-                  autoCapitalize="none"
-                  autoCorrect={false}
+          <View
+            style={[
+              styles.form,
+              {
+                backgroundColor: colors.cardBackground,
+                shadowColor: colors.shadow,
+              },
+            ]}
+          >
+            <Text style={[styles.label, { color: colors.text }]}>
+              Master Password
+            </Text>
+            <View style={styles.passwordContainer}>
+              <TextInput
+                style={[
+                  styles.input,
+                  {
+                    borderColor: colors.inputBorder,
+                    backgroundColor: colors.inputBackground,
+                    color: colors.text,
+                  },
+                ]}
+                value={password}
+                onChangeText={setPassword}
+                placeholder="Enter your master password"
+                placeholderTextColor={colors.placeholderText}
+                secureTextEntry={!showPassword}
+                autoCapitalize="none"
+                autoCorrect={false}
+              />
+              <TouchableOpacity
+                style={styles.eyeIcon}
+                onPress={() => setShowPassword(!showPassword)}
+              >
+                <Ionicons
+                  name={showPassword ? "eye-off" : "eye"}
+                  size={24}
+                  color={colors.textSecondary}
                 />
-              </View>
+              </TouchableOpacity>
+            </View>
 
-              <View style={styles.requirements}>
-                <Text style={styles.requirementsTitle}>
-                  Password Requirements:
+            {isSignupMode && (
+              <>
+                <Text style={[styles.label, { color: colors.text }]}>
+                  Confirm Password
                 </Text>
-                <Text style={styles.requirementText}>
-                  • At least 8 characters
-                </Text>
-                <Text style={styles.requirementText}>
-                  • One uppercase letter
-                </Text>
-                <Text style={styles.requirementText}>
-                  • One lowercase letter
-                </Text>
-                <Text style={styles.requirementText}>• One number</Text>
-                <Text style={styles.requirementText}>
-                  • One special character
-                </Text>
-              </View>
-            </>
-          )}
+                <View style={styles.passwordContainer}>
+                  <TextInput
+                    style={[
+                      styles.input,
+                      {
+                        borderColor: colors.inputBorder,
+                        backgroundColor: colors.inputBackground,
+                        color: colors.text,
+                      },
+                    ]}
+                    value={confirmPassword}
+                    onChangeText={setConfirmPassword}
+                    placeholder="Confirm your master password"
+                    placeholderTextColor={colors.placeholderText}
+                    secureTextEntry={!showPassword}
+                    autoCapitalize="none"
+                    autoCorrect={false}
+                  />
+                </View>
 
-          <TouchableOpacity
-            style={[styles.button, isLoading && styles.buttonDisabled]}
-            onPress={handleAuth}
-            disabled={isLoading}
-          >
-            <Text style={styles.buttonText}>
-              {isLoading
-                ? "Please wait..."
-                : isSignupMode
-                  ? "Create Account"
-                  : "Login"}
+                <View
+                  style={[
+                    styles.requirements,
+                    { backgroundColor: colors.primary + "15" },
+                  ]}
+                >
+                  <Text
+                    style={[
+                      styles.requirementsTitle,
+                      { color: colors.primary },
+                    ]}
+                  >
+                    Password Requirements:
+                  </Text>
+                  <Text
+                    style={[
+                      styles.requirementText,
+                      { color: colors.textSecondary },
+                    ]}
+                  >
+                    • At least 8 characters
+                  </Text>
+                  <Text
+                    style={[
+                      styles.requirementText,
+                      { color: colors.textSecondary },
+                    ]}
+                  >
+                    • One uppercase letter
+                  </Text>
+                  <Text
+                    style={[
+                      styles.requirementText,
+                      { color: colors.textSecondary },
+                    ]}
+                  >
+                    • One lowercase letter
+                  </Text>
+                  <Text
+                    style={[
+                      styles.requirementText,
+                      { color: colors.textSecondary },
+                    ]}
+                  >
+                    • One number
+                  </Text>
+                  <Text
+                    style={[
+                      styles.requirementText,
+                      { color: colors.textSecondary },
+                    ]}
+                  >
+                    • One special character
+                  </Text>
+                </View>
+              </>
+            )}
+
+            <TouchableOpacity
+              style={[
+                styles.button,
+                { backgroundColor: colors.primary },
+                isLoading && styles.buttonDisabled,
+              ]}
+              onPress={handleAuth}
+              disabled={isLoading}
+            >
+              <Text style={styles.buttonText}>
+                {isLoading
+                  ? "Please wait..."
+                  : isSignupMode
+                    ? "Create Account"
+                    : "Login"}
+              </Text>
+            </TouchableOpacity>
+
+            {!isSignupMode && biometricAvailable && (
+              <TouchableOpacity
+                style={[
+                  styles.biometricButton,
+                  { borderColor: colors.primary },
+                ]}
+                onPress={handleBiometricAuth}
+                disabled={isLoading}
+              >
+                <Ionicons
+                  name="finger-print"
+                  size={24}
+                  color={colors.primary}
+                />
+                <Text style={[styles.biometricText, { color: colors.primary }]}>
+                  Use Biometric Login
+                </Text>
+              </TouchableOpacity>
+            )}
+
+            <TouchableOpacity
+              style={styles.toggleButton}
+              onPress={() => {
+                setIsSignupMode(!isSignupMode);
+                setPassword("");
+                setConfirmPassword("");
+              }}
+            >
+              <Text style={[styles.toggleText, { color: colors.primary }]}>
+                {isSignupMode
+                  ? "Already have an account? Login"
+                  : hasAccount
+                    ? "Need to create a new account? Signup"
+                    : "Create an account? Signup"}
+              </Text>
+            </TouchableOpacity>
+
+            <Text style={styles.warningText}>
+              ⚠️ Your master password cannot be recovered. Make sure you
+              remember it!
             </Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.toggleButton}
-            onPress={() => {
-              setIsSignupMode(!isSignupMode);
-              setPassword("");
-              setConfirmPassword("");
-            }}
-          >
-            <Text style={styles.toggleText}>
-              {isSignupMode
-                ? "Already have an account? Login"
-                : hasAccount
-                  ? "Need to create a new account? Signup"
-                  : "Create an account? Signup"}
-            </Text>
-          </TouchableOpacity>
-
-          <Text style={styles.warningText}>
-            ⚠️ Your master password cannot be recovered. Make sure you remember
-            it!
-          </Text>
-        </View>
-      </ScrollView>
-    </KeyboardAvoidingView>
+          </View>
+        </ScrollView>
+      </KeyboardAvoidingView>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
+  safeArea: {
+    flex: 1,
+    backgroundColor: "#f5f5f5",
+  },
   container: {
     flex: 1,
     backgroundColor: "#f5f5f5",
@@ -286,6 +500,20 @@ const styles = StyleSheet.create({
   buttonText: {
     color: "white",
     fontSize: 18,
+    fontWeight: "600",
+  },
+  biometricButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 2,
+    borderRadius: 8,
+    padding: 14,
+    marginTop: 12,
+    gap: 8,
+  },
+  biometricText: {
+    fontSize: 16,
     fontWeight: "600",
   },
   warningText: {

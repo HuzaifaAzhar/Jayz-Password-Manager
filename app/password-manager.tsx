@@ -1,4 +1,5 @@
 import { useAuth } from "@/contexts/auth-context";
+import { useThemeColors } from "@/hooks/use-theme-colors";
 import { StorageService } from "@/services/storage";
 import { PasswordEntry } from "@/types/password";
 import { generateSecurePassword } from "@/utils/encryption";
@@ -23,6 +24,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 export default function PasswordManagerScreen() {
   const { masterPassword, logout } = useAuth();
+  const colors = useThemeColors();
   const router = useRouter();
   const [entries, setEntries] = useState<PasswordEntry[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
@@ -187,41 +189,80 @@ export default function PasswordManagerScreen() {
 
   const renderPasswordForm = (isEdit: boolean) => (
     <ScrollView
-      style={styles.modalContent}
+      style={[styles.modalContent, { backgroundColor: colors.cardBackground }]}
       showsVerticalScrollIndicator={true}
       bounces={false}
     >
-      <Text style={styles.modalTitle}>
-        {isEdit ? "Edit Password" : "Add Password"}
-      </Text>
+      <View style={styles.modalHeader}>
+        <Text style={[styles.modalTitle, { color: colors.text }]}>
+          {isEdit ? "Edit Password" : "Add Password"}
+        </Text>
+        <TouchableOpacity
+          onPress={() => {
+            resetForm();
+            setShowFormPassword(false);
+            if (isEdit) {
+              setIsEditModalVisible(false);
+            } else {
+              setIsAddModalVisible(false);
+            }
+          }}
+          style={styles.modalCloseButton}
+        >
+          <Ionicons name="close" size={24} color={colors.textSecondary} />
+        </TouchableOpacity>
+      </View>
 
-      <Text style={styles.label}>Title *</Text>
+      <Text style={[styles.label, { color: colors.text }]}>Title *</Text>
       <TextInput
-        style={styles.input}
+        style={[
+          styles.input,
+          {
+            backgroundColor: colors.inputBackground,
+            borderColor: colors.inputBorder,
+            color: colors.text,
+          },
+        ]}
         value={formTitle}
         onChangeText={setFormTitle}
         placeholder="e.g., Gmail Account"
-        placeholderTextColor="#999"
+        placeholderTextColor={colors.placeholderText}
       />
 
-      <Text style={styles.label}>Username/Email</Text>
+      <Text style={[styles.label, { color: colors.text }]}>Username/Email</Text>
       <TextInput
-        style={styles.input}
+        style={[
+          styles.input,
+          {
+            backgroundColor: colors.inputBackground,
+            borderColor: colors.inputBorder,
+            color: colors.text,
+          },
+        ]}
         value={formUsername}
         onChangeText={setFormUsername}
         placeholder="username@example.com"
-        placeholderTextColor="#999"
+        placeholderTextColor={colors.placeholderText}
         autoCapitalize="none"
       />
 
-      <Text style={styles.label}>Password *</Text>
+      <Text style={[styles.label, { color: colors.text }]}>Password *</Text>
       <View style={styles.passwordInputContainer}>
         <TextInput
-          style={[styles.input, { flex: 1, paddingRight: 90 }]}
+          style={[
+            styles.input,
+            {
+              flex: 1,
+              paddingRight: 90,
+              backgroundColor: colors.inputBackground,
+              borderColor: colors.inputBorder,
+              color: colors.text,
+            },
+          ]}
           value={formPassword}
           onChangeText={setFormPassword}
           placeholder="Enter password"
-          placeholderTextColor="#999"
+          placeholderTextColor={colors.placeholderText}
           secureTextEntry={!showFormPassword}
         />
         <TouchableOpacity
@@ -231,88 +272,147 @@ export default function PasswordManagerScreen() {
           <Ionicons
             name={showFormPassword ? "eye-off" : "eye"}
             size={20}
-            color="#666"
+            color={colors.textSecondary}
           />
         </TouchableOpacity>
         <TouchableOpacity
           style={styles.generateButton}
           onPress={generatePassword}
         >
-          <Ionicons name="refresh" size={20} color="#4A90E2" />
+          <Ionicons name="refresh" size={20} color={colors.iconColor} />
         </TouchableOpacity>
       </View>
 
-      <Text style={styles.label}>Website</Text>
+      <Text style={[styles.label, { color: colors.text }]}>Website</Text>
       <TextInput
-        style={styles.input}
+        style={[
+          styles.input,
+          {
+            backgroundColor: colors.inputBackground,
+            borderColor: colors.inputBorder,
+            color: colors.text,
+          },
+        ]}
         value={formWebsite}
         onChangeText={setFormWebsite}
         placeholder="https://example.com"
-        placeholderTextColor="#999"
+        placeholderTextColor={colors.placeholderText}
         autoCapitalize="none"
       />
 
-      <Text style={styles.label}>Category</Text>
+      <Text style={[styles.label, { color: colors.text }]}>Category</Text>
       <TextInput
-        style={styles.input}
+        style={[
+          styles.input,
+          {
+            backgroundColor: colors.inputBackground,
+            borderColor: colors.inputBorder,
+            color: colors.text,
+          },
+        ]}
         value={formCategory}
         onChangeText={setFormCategory}
         placeholder="e.g., Social Media, Banking"
-        placeholderTextColor="#999"
+        placeholderTextColor={colors.placeholderText}
       />
 
-      <Text style={styles.label}>Notes</Text>
+      <Text style={[styles.label, { color: colors.text }]}>Notes</Text>
       <TextInput
-        style={[styles.input, styles.textArea]}
+        style={[
+          styles.input,
+          styles.textArea,
+          {
+            backgroundColor: colors.inputBackground,
+            borderColor: colors.inputBorder,
+            color: colors.text,
+          },
+        ]}
         value={formNotes}
         onChangeText={setFormNotes}
         placeholder="Additional notes..."
-        placeholderTextColor="#999"
+        placeholderTextColor={colors.placeholderText}
         multiline
         numberOfLines={4}
       />
 
       <View style={styles.modalButtons}>
         <TouchableOpacity
-          style={[styles.modalButton, styles.cancelButton]}
+          style={[
+            styles.modalButton,
+            styles.cancelButton,
+            {
+              backgroundColor: colors.inputBackground,
+              borderColor: colors.inputBorder,
+            },
+          ]}
           onPress={() => {
             resetForm();
             setShowFormPassword(false);
-            isEdit ? setIsEditModalVisible(false) : setIsAddModalVisible(false);
+            if (isEdit) {
+              setIsEditModalVisible(false);
+            } else {
+              setIsAddModalVisible(false);
+            }
           }}
         >
-          <Text style={styles.cancelButtonText}>Cancel</Text>
+          <Text style={[styles.cancelButtonText, { color: colors.text }]}>
+            Cancel
+          </Text>
         </TouchableOpacity>
         <TouchableOpacity
-          style={[styles.modalButton, styles.saveButton]}
+          style={[
+            styles.modalButton,
+            styles.saveButton,
+            { backgroundColor: colors.primary },
+          ]}
           onPress={isEdit ? handleUpdateEntry : handleAddEntry}
         >
-          <Text style={styles.saveButtonText}>Save</Text>
+          <Text style={[styles.saveButtonText, { color: colors.buttonText }]}>
+            Save
+          </Text>
         </TouchableOpacity>
       </View>
     </ScrollView>
   );
 
   const renderEntry = ({ item }: { item: PasswordEntry }) => (
-    <View style={styles.entryCard}>
+    <View
+      style={[
+        styles.entryCard,
+        { backgroundColor: colors.cardBackground, shadowColor: colors.shadow },
+      ]}
+    >
       <View style={styles.entryHeader}>
         <View style={styles.entryTitleContainer}>
-          <Ionicons name="key" size={24} color="#4A90E2" />
+          <Ionicons name="key" size={24} color={colors.iconColor} />
           <View style={styles.entryTextContainer}>
-            <Text style={styles.entryTitle}>{item.title}</Text>
+            <Text style={[styles.entryTitle, { color: colors.text }]}>
+              {item.title}
+            </Text>
             {item.username && (
               <View style={styles.usernameRow}>
-                <Text style={styles.entryUsername}>{item.username}</Text>
+                <Text
+                  style={[
+                    styles.entryUsername,
+                    { color: colors.textSecondary },
+                  ]}
+                >
+                  {item.username}
+                </Text>
                 <TouchableOpacity
                   onPress={() => copyToClipboard(item.username, "Username")}
                   style={styles.copyIconSmall}
                 >
-                  <Ionicons name="copy" size={16} color="#4A90E2" />
+                  <Ionicons name="copy" size={16} color={colors.iconColor} />
                 </TouchableOpacity>
               </View>
             )}
             {item.category && (
-              <Text style={styles.entryCategory}>📁 {item.category}</Text>
+              <Text
+                style={[styles.entryCategory, { color: colors.textSecondary }]}
+              >
+                📁 {item.category}
+              </Text>
             )}
           </View>
         </View>
@@ -321,13 +421,13 @@ export default function PasswordManagerScreen() {
             onPress={() => openEditModal(item)}
             style={styles.actionButton}
           >
-            <Ionicons name="pencil" size={20} color="#4A90E2" />
+            <Ionicons name="pencil" size={20} color={colors.iconColor} />
           </TouchableOpacity>
           <TouchableOpacity
             onPress={() => handleDeleteEntry(item.id)}
             style={styles.actionButton}
           >
-            <Ionicons name="trash" size={20} color="#ff6b6b" />
+            <Ionicons name="trash" size={20} color={colors.iconSecondary} />
           </TouchableOpacity>
         </View>
       </View>
@@ -337,20 +437,24 @@ export default function PasswordManagerScreen() {
           <TouchableOpacity
             onPress={() => copyToClipboard(item.website!, "Website")}
           >
-            <Text style={styles.entryWebsite}>🌐 {item.website}</Text>
+            <Text style={[styles.entryWebsite, { color: colors.iconColor }]}>
+              🌐 {item.website}
+            </Text>
           </TouchableOpacity>
         )}
 
         <View style={styles.passwordContainer}>
-          <Text style={styles.passwordLabel}>Password: </Text>
-          <Text style={styles.passwordText}>
+          <Text style={[styles.passwordLabel, { color: colors.textSecondary }]}>
+            Password:{" "}
+          </Text>
+          <Text style={[styles.passwordText, { color: colors.text }]}>
             {showPassword[item.id] ? item.password : "••••••••"}
           </Text>
           <TouchableOpacity onPress={() => togglePasswordVisibility(item.id)}>
             <Ionicons
               name={showPassword[item.id] ? "eye-off" : "eye"}
               size={20}
-              color="#666"
+              color={colors.textSecondary}
             />
           </TouchableOpacity>
           <TouchableOpacity
@@ -359,42 +463,67 @@ export default function PasswordManagerScreen() {
             <Ionicons
               name="copy"
               size={20}
-              color="#4A90E2"
+              color={colors.iconColor}
               style={{ marginLeft: 12 }}
             />
           </TouchableOpacity>
         </View>
 
-        {item.notes && <Text style={styles.entryNotes}>📝 {item.notes}</Text>}
+        {item.notes && (
+          <Text style={[styles.entryNotes, { color: colors.textSecondary }]}>
+            📝 {item.notes}
+          </Text>
+        )}
       </View>
     </View>
   );
 
   return (
-    <SafeAreaView style={styles.container} edges={["top", "left", "right"]}>
-      <View style={styles.header}>
-        <Text style={styles.headerTitle}>My Passwords</Text>
+    <SafeAreaView
+      style={[styles.container, { backgroundColor: colors.background }]}
+      edges={["top", "left", "right", "bottom"]}
+    >
+      <View
+        style={[
+          styles.header,
+          {
+            backgroundColor: colors.cardBackground,
+            borderBottomColor: colors.border,
+          },
+        ]}
+      >
+        <Text style={[styles.headerTitle, { color: colors.text }]}>
+          My Passwords
+        </Text>
         <View style={styles.headerActions}>
           <TouchableOpacity
             onPress={() => router.push("/settings")}
             style={styles.headerButton}
           >
-            <Ionicons name="settings" size={24} color="#4A90E2" />
+            <Ionicons name="settings" size={24} color={colors.iconColor} />
           </TouchableOpacity>
           <TouchableOpacity onPress={logout} style={styles.headerButton}>
-            <Ionicons name="log-out" size={24} color="#ff6b6b" />
+            <Ionicons name="log-out" size={24} color={colors.iconSecondary} />
           </TouchableOpacity>
         </View>
       </View>
 
-      <View style={styles.searchContainer}>
-        <Ionicons name="search" size={20} color="#666" />
+      <View
+        style={[
+          styles.searchContainer,
+          {
+            backgroundColor: colors.inputBackground,
+            borderColor: colors.inputBorder,
+          },
+        ]}
+      >
+        <Ionicons name="search" size={20} color={colors.textSecondary} />
         <TextInput
-          style={styles.searchInput}
+          style={[styles.searchInput, { color: colors.text }]}
           value={searchQuery}
           onChangeText={setSearchQuery}
           placeholder="Search passwords..."
-          placeholderTextColor="#999"
+          placeholderTextColor={colors.placeholderText}
         />
       </View>
 
@@ -405,9 +534,17 @@ export default function PasswordManagerScreen() {
         contentContainerStyle={styles.listContainer}
         ListEmptyComponent={
           <View style={styles.emptyContainer}>
-            <Ionicons name="lock-closed" size={60} color="#ccc" />
-            <Text style={styles.emptyText}>No passwords yet</Text>
-            <Text style={styles.emptySubtext}>
+            <Ionicons
+              name="lock-closed"
+              size={80}
+              color={colors.textTertiary}
+            />
+            <Text style={[styles.emptyText, { color: colors.text }]}>
+              No passwords saved yet
+            </Text>
+            <Text
+              style={[styles.emptySubtext, { color: colors.textSecondary }]}
+            >
               Tap the + button to add your first password
             </Text>
           </View>
@@ -415,27 +552,47 @@ export default function PasswordManagerScreen() {
       />
 
       <TouchableOpacity
-        style={styles.fab}
+        style={[styles.fab, { backgroundColor: colors.primary }]}
         onPress={() => setIsAddModalVisible(true)}
       >
-        <Ionicons name="add" size={32} color="white" />
+        <Ionicons name="add" size={32} color={colors.buttonText} />
       </TouchableOpacity>
 
       <Modal visible={isAddModalVisible} animationType="slide" transparent>
         <KeyboardAvoidingView
           behavior={Platform.OS === "ios" ? "padding" : "height"}
-          style={styles.modalOverlay}
+          style={[
+            styles.modalOverlay,
+            { backgroundColor: colors.modalBackground },
+          ]}
         >
-          <View style={styles.modalContainer}>{renderPasswordForm(false)}</View>
+          <View
+            style={[
+              styles.modalContainer,
+              { backgroundColor: colors.cardBackground },
+            ]}
+          >
+            {renderPasswordForm(false)}
+          </View>
         </KeyboardAvoidingView>
       </Modal>
 
       <Modal visible={isEditModalVisible} animationType="slide" transparent>
         <KeyboardAvoidingView
           behavior={Platform.OS === "ios" ? "padding" : "height"}
-          style={styles.modalOverlay}
+          style={[
+            styles.modalOverlay,
+            { backgroundColor: colors.modalBackground },
+          ]}
         >
-          <View style={styles.modalContainer}>{renderPasswordForm(true)}</View>
+          <View
+            style={[
+              styles.modalContainer,
+              { backgroundColor: colors.cardBackground },
+            ]}
+          >
+            {renderPasswordForm(true)}
+          </View>
         </KeyboardAvoidingView>
       </Modal>
     </SafeAreaView>
@@ -595,7 +752,7 @@ const styles = StyleSheet.create({
   fab: {
     position: "absolute",
     right: 20,
-    bottom: 20,
+    bottom: 80,
     width: 60,
     height: 60,
     borderRadius: 30,
@@ -626,11 +783,19 @@ const styles = StyleSheet.create({
   modalContent: {
     padding: 20,
   },
+  modalHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 20,
+  },
   modalTitle: {
     fontSize: 24,
     fontWeight: "bold",
     color: "#333",
-    marginBottom: 20,
+  },
+  modalCloseButton: {
+    padding: 4,
   },
   label: {
     fontSize: 14,
