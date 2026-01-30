@@ -183,12 +183,15 @@ export class StorageService {
   }
 
   /**
-   * Exports the encrypted vault as JSON string
+   * Exports the encrypted vault as JSON string (double encrypted)
    */
   static async exportVault(masterPassword: string): Promise<string> {
     try {
       const vault = await this.loadVault(masterPassword);
-      return JSON.stringify(vault, null, 2);
+      const vaultJson = JSON.stringify(vault, null, 2);
+      // Encrypt the entire export with master password for additional security
+      const encryptedExport = encryptData(vaultJson, masterPassword);
+      return encryptedExport;
     } catch (error) {
       console.error("Error exporting vault:", error);
       throw new Error("Failed to export password vault");
@@ -196,32 +199,60 @@ export class StorageService {
   }
 
   /**
-   * Imports a vault from JSON string
+   * Imports a vault from JSON string (decrypts double-encrypted export)
    */
   static async importVault(
-    vaultJson: string,
-    masterPassword: string,
+    encryptedVaultJson: string,
+    importPassword: string,
     merge: boolean = false,
+    currentMasterPassword?: string,
   ): Promise<void> {
     try {
-      const importedVault: PasswordVault = JSON.parse(vaultJson);
+      // First, decrypt the export (which was encrypted with the import password)
+      let decryptedVaultJson: string;
+      try {
+        decryptedVaultJson = decryptData(encryptedVaultJson, importPassword);
+      } catch (error) {
+        throw new Error("Wrong master password or invalid backup file");
+      }
+
+      const importedVault: PasswordVault = JSON.parse(decryptedVaultJson);
 
       if (!importedVault.entries || !Array.isArray(importedVault.entries)) {
         throw new Error("Invalid vault format");
       }
 
+      // Use current master password if provided, otherwise use import password
+      const savePassword = currentMasterPassword || importPassword;
+
       if (merge) {
-        const existingVault = await this.loadVault(masterPassword);
+        const existingVault = await this.loadVault(savePassword);
+
+        // Filter out duplicates - entries with same ID
+        const filteredImportedEntries = importedVault.entries.filter(
+          (importedEntry) => {
+            return !existingVault.entries.some(
+              (existingEntry) => existingEntry.id === importedEntry.id,
+            );
+          },
+        );
+
         importedVault.entries = [
           ...existingVault.entries,
-          ...importedVault.entries,
+          ...filteredImportedEntries,
         ];
       }
 
       importedVault.lastModified = Date.now();
-      await this.saveVault(importedVault, masterPassword);
+      await this.saveVault(importedVault, savePassword);
     } catch (error) {
       console.error("Error importing vault:", error);
+      if (
+        error instanceof Error &&
+        error.message.includes("Wrong master password")
+      ) {
+        throw error;
+      }
       throw new Error("Failed to import password vault");
     }
   }
