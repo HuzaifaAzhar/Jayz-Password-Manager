@@ -4,11 +4,12 @@ import { PasswordEntry } from "@/types/password";
 import { generateSecurePassword } from "@/utils/encryption";
 import { Ionicons } from "@expo/vector-icons";
 import * as Clipboard from "expo-clipboard";
-import { useRouter } from "expo-router";
-import React, { useEffect, useState } from "react";
+import { useFocusEffect, useRouter } from "expo-router";
+import React, { useState } from "react";
 import {
   Alert,
   FlatList,
+  KeyboardAvoidingView,
   Modal,
   Platform,
   ScrollView,
@@ -43,9 +44,11 @@ export default function PasswordManagerScreen() {
   const [formCategory, setFormCategory] = useState("");
   const [showFormPassword, setShowFormPassword] = useState(false);
 
-  useEffect(() => {
-    loadEntries();
-  }, []);
+  useFocusEffect(
+    React.useCallback(() => {
+      loadEntries();
+    }, [masterPassword]),
+  );
 
   const loadEntries = async () => {
     if (!masterPassword) return;
@@ -298,7 +301,15 @@ export default function PasswordManagerScreen() {
           <View style={styles.entryTextContainer}>
             <Text style={styles.entryTitle}>{item.title}</Text>
             {item.username && (
-              <Text style={styles.entryUsername}>{item.username}</Text>
+              <View style={styles.usernameRow}>
+                <Text style={styles.entryUsername}>{item.username}</Text>
+                <TouchableOpacity
+                  onPress={() => copyToClipboard(item.username, "Username")}
+                  style={styles.copyIconSmall}
+                >
+                  <Ionicons name="copy" size={16} color="#4A90E2" />
+                </TouchableOpacity>
+              </View>
             )}
             {item.category && (
               <Text style={styles.entryCategory}>📁 {item.category}</Text>
@@ -411,15 +422,21 @@ export default function PasswordManagerScreen() {
       </TouchableOpacity>
 
       <Modal visible={isAddModalVisible} animationType="slide" transparent>
-        <View style={styles.modalOverlay}>
+        <KeyboardAvoidingView
+          behavior={Platform.OS === "ios" ? "padding" : "height"}
+          style={styles.modalOverlay}
+        >
           <View style={styles.modalContainer}>{renderPasswordForm(false)}</View>
-        </View>
+        </KeyboardAvoidingView>
       </Modal>
 
       <Modal visible={isEditModalVisible} animationType="slide" transparent>
-        <View style={styles.modalOverlay}>
+        <KeyboardAvoidingView
+          behavior={Platform.OS === "ios" ? "padding" : "height"}
+          style={styles.modalOverlay}
+        >
           <View style={styles.modalContainer}>{renderPasswordForm(true)}</View>
-        </View>
+        </KeyboardAvoidingView>
       </Modal>
     </SafeAreaView>
   );
@@ -506,6 +523,15 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: "#666",
     marginTop: 4,
+  },
+  usernameRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginTop: 4,
+  },
+  copyIconSmall: {
+    marginLeft: 8,
+    padding: 4,
   },
   entryCategory: {
     fontSize: 12,

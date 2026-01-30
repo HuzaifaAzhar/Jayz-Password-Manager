@@ -84,17 +84,54 @@ export default function SettingsScreen() {
         {
           text: "Replace",
           style: "destructive",
-          onPress: () => performImport(false),
+          onPress: () => askForImportPassword(false),
         },
         {
           text: "Merge",
-          onPress: () => performImport(true),
+          onPress: () => askForImportPassword(true),
         },
       ],
     );
   };
 
-  const performImport = async (merge: boolean) => {
+  const askForImportPassword = (merge: boolean) => {
+    Alert.alert(
+      "Backup Password",
+      "The backup file is encrypted. Choose which password to use:",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Use Current Password",
+          onPress: () => performImport(merge, masterPassword!),
+        },
+        {
+          text: "Enter Different Password",
+          onPress: () => {
+            Alert.prompt(
+              "Enter Backup Password",
+              "Enter the master password used to create this backup:",
+              [
+                { text: "Cancel", style: "cancel" },
+                {
+                  text: "Import",
+                  onPress: (password) => {
+                    if (password && password.trim()) {
+                      performImport(merge, password.trim());
+                    } else {
+                      Alert.alert("Error", "Password cannot be empty");
+                    }
+                  },
+                },
+              ],
+              "secure-text",
+            );
+          },
+        },
+      ],
+    );
+  };
+
+  const performImport = async (merge: boolean, importPassword: string) => {
     if (!masterPassword) return;
 
     setIsImporting(true);
@@ -112,10 +149,32 @@ export default function SettingsScreen() {
       const fileUri = result.assets[0].uri;
       const fileContent = await FileSystem.readAsStringAsync(fileUri);
 
-      await StorageService.importVault(fileContent, masterPassword, merge);
-      Alert.alert("Success", "Passwords imported successfully");
+      // Use the import password to decrypt, then save with current master password
+      await StorageService.importVault(
+        fileContent,
+        importPassword,
+        merge,
+        masterPassword,
+      );
+
+      Alert.alert(
+        "Success",
+        "Passwords imported successfully! Returning to password manager...",
+        [
+          {
+            text: "OK",
+            onPress: () => router.back(),
+          },
+        ],
+      );
     } catch (error) {
-      Alert.alert("Error", "Failed to import passwords. Invalid file format.");
+      console.error("Import error:", error);
+      const errorMessage =
+        error instanceof Error &&
+        error.message.includes("Wrong master password")
+          ? "Wrong master password or invalid backup file"
+          : "Failed to import passwords. Invalid file format.";
+      Alert.alert("Error", errorMessage);
     } finally {
       setIsImporting(false);
     }

@@ -1,4 +1,5 @@
 import { StorageService } from "@/services/storage";
+import { router } from "expo-router";
 import React, {
     createContext,
     ReactNode,
@@ -76,6 +77,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const logout = () => {
     setIsAuthenticated(false);
     setMasterPassword(null);
+    router.replace("/auth");
   };
 
   return (
