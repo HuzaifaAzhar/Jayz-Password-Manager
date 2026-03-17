@@ -9,12 +9,7 @@
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "ios": {
-      "supportsTablet": true,
-      "infoPlist": {
-        "NSFaceIDUsageDescription": "This app uses Face ID to securely authenticate and access your password vault.",
-        "ITSAppUsesNonExemptEncryption": false
-      },
-      "bundleIdentifier": "com.jayz.JayzPasswordManager"
+      "supportsTablet": true
     },
     "android": {
       "adaptiveIcon": {
