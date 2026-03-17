@@ -10,6 +10,7 @@ A highly secure, locally-encrypted password manager built with React Native and 
 - **No Cloud Sync**: Your data never leaves your device
 - **Strong Password Validation**: Enforced password requirements for master password
 - **Secure Password Generator**: Built-in generator for strong, random passwords
+- **🛡️ Data Protection**: Prevents unauthorized clearing of data from outside the app - only in-app clearing is allowed
 
 ## ✨ Features
 

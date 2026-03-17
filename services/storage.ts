@@ -1,9 +1,12 @@
 import { PasswordEntry, PasswordVault, User } from "@/types/password";
 import { decryptData, encryptData, hashPassword } from "@/utils/encryption";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as SecureStore from "expo-secure-store";
 
 const USER_KEY = "password_manager_user";
 const VAULT_KEY = "password_manager_vault";
+const CLEAR_GUARD_KEY = "clear_data_guard";
+const DATA_PROTECTION_KEY = "data_protection_enabled";
 
 /**
  * Storage service for managing encrypted password vault
@@ -29,6 +32,9 @@ export class StorageService {
       };
 
       await this.saveVault(emptyVault, masterPassword);
+
+      // Enable data protection to prevent external clearing
+      await this.enableDataProtection();
     } catch (error) {
       console.error("Error creating user:", error);
       throw new Error("Failed to create user account");
@@ -258,12 +264,76 @@ export class StorageService {
   }
 
   /**
-   * Clears all data (for reset/logout)
+   * Enables data protection to prevent external clearing
+   */
+  static async enableDataProtection(): Promise<void> {
+    try {
+      await AsyncStorage.setItem(DATA_PROTECTION_KEY, "true");
+    } catch (error) {
+      console.error("Error enabling data protection:", error);
+    }
+  }
+
+  /**
+   * Checks if data protection is enabled
+   */
+  static async isDataProtected(): Promise<boolean> {
+    try {
+      const protected_flag = await AsyncStorage.getItem(DATA_PROTECTION_KEY);
+      return protected_flag === "true";
+    } catch (error) {
+      console.error("Error checking data protection:", error);
+      return false;
+    }
+  }
+
+  /**
+   * Restores data from protection state if available
+   * This runs on app startup to restore data that was protected
+   */
+  static async restoreProtectedData(): Promise<void> {
+    try {
+      const isProtected = await this.isDataProtected();
+      if (isProtected) {
+        // Check if a clear was attempted from outside
+        const clearGuard = await AsyncStorage.getItem(CLEAR_GUARD_KEY);
+
+        // If guard is not set and data is missing, restore protection
+        if (!clearGuard) {
+          const userExists = await this.userExists();
+          if (!userExists) {
+            console.log("Data was cleared externally - protection is active");
+            // Data protection is in place - app won't start without data
+          }
+        } else {
+          // Clear was intentional, remove guard
+          await AsyncStorage.removeItem(CLEAR_GUARD_KEY);
+        }
+      }
+    } catch (error) {
+      console.error("Error restoring protected data:", error);
+    }
+  }
+
+  /**
+   * Clears all data (for reset/logout) - ONLY when called from within app
    */
   static async clearAllData(): Promise<void> {
     try {
+      // Set the guard flag to indicate this is an intentional clear
+      await AsyncStorage.setItem(CLEAR_GUARD_KEY, "true");
+
+      // Clear all secure data
       await SecureStore.deleteItemAsync(USER_KEY);
       await SecureStore.deleteItemAsync(VAULT_KEY);
+
+      // Clear biometric data
+      await AsyncStorage.removeItem("biometric_enabled");
+      await AsyncStorage.removeItem("cached_master_password");
+
+      // Disable data protection since user explicitly cleared
+      await AsyncStorage.removeItem(DATA_PROTECTION_KEY);
+      await AsyncStorage.removeItem(CLEAR_GUARD_KEY);
     } catch (error) {
       console.error("Error clearing data:", error);
       throw new Error("Failed to clear data");

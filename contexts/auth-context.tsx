@@ -32,6 +32,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const checkUserExists = async () => {
     try {
+      // Restore any protected data first
+      await StorageService.restoreProtectedData();
+      
       const exists = await StorageService.userExists();
       setHasAccount(exists);
     } catch (error) {

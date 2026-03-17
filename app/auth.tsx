@@ -45,6 +45,22 @@ export default function AuthScreen() {
       const enrolled = await LocalAuthentication.isEnrolledAsync();
       console.log("[Biometric] User enrolled:", enrolled);
 
+      const supportedTypes =
+        await LocalAuthentication.supportedAuthenticationTypesAsync();
+      console.log("[Biometric] Supported types:", supportedTypes);
+      console.log(
+        "[Biometric] Face ID:",
+        supportedTypes.includes(
+          LocalAuthentication.AuthenticationType.FACIAL_RECOGNITION,
+        ),
+      );
+      console.log(
+        "[Biometric] Touch ID:",
+        supportedTypes.includes(
+          LocalAuthentication.AuthenticationType.FINGERPRINT,
+        ),
+      );
+
       const AsyncStorage = (
         await import("@react-native-async-storage/async-storage")
       ).default;
@@ -74,10 +90,38 @@ export default function AuthScreen() {
       console.log("[Biometric] Platform:", Platform.OS);
       console.log("[Biometric] Has cached password:", !!storedPassword);
 
+      // Check which biometric type is available
+      const supportedTypes =
+        await LocalAuthentication.supportedAuthenticationTypesAsync();
+      const hasFaceID = supportedTypes.includes(
+        LocalAuthentication.AuthenticationType.FACIAL_RECOGNITION,
+      );
+      const hasTouchID = supportedTypes.includes(
+        LocalAuthentication.AuthenticationType.FINGERPRINT,
+      );
+
+      console.log("[Biometric] Face ID available:", hasFaceID);
+      console.log("[Biometric] Touch ID available:", hasTouchID);
+
+      if (!hasFaceID && !hasTouchID) {
+        Alert.alert(
+          "Biometric Not Set Up",
+          "Please set up Face ID or Touch ID in your device Settings to use biometric login.",
+        );
+        return;
+      }
+
+      const biometricType = hasFaceID
+        ? "Face ID"
+        : hasTouchID
+          ? "Touch ID"
+          : "Biometric";
+
       const result = await LocalAuthentication.authenticateAsync({
-        promptMessage: "Authenticate to access your passwords",
-        fallbackLabel: "Use master password",
-        disableDeviceFallback: false,
+        promptMessage: `Use ${biometricType} to access your passwords`,
+        fallbackLabel: "Use Password",
+        cancelLabel: "Cancel",
+        disableDeviceFallback: true,
       });
 
       console.log("[Biometric] Authentication result:", result);

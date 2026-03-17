@@ -4,8 +4,9 @@ import { useThemeColors } from "@/hooks/use-theme-colors";
 import { StorageService } from "@/services/storage";
 import { Ionicons } from "@expo/vector-icons";
 import * as DocumentPicker from "expo-document-picker";
-import * as FileSystem from "expo-file-system";
+import { File, Paths } from "expo-file-system";
 import * as LocalAuthentication from "expo-local-authentication";
+import * as Sharing from "expo-sharing";
 import { useRouter } from "expo-router";
 import React, { useEffect, useState } from "react";
 import {
@@ -13,7 +14,6 @@ import {
   Modal,
   Platform,
   ScrollView,
-  Share,
   StyleSheet,
   Switch,
   Text,
@@ -98,12 +98,34 @@ export default function SettingsScreen() {
         await LocalAuthentication.supportedAuthenticationTypesAsync();
       console.log("[Biometric Setup] Supported types:", supportedTypes);
 
+      const hasFaceID = supportedTypes.includes(
+        LocalAuthentication.AuthenticationType.FACIAL_RECOGNITION,
+      );
+      const hasTouchID = supportedTypes.includes(
+        LocalAuthentication.AuthenticationType.FINGERPRINT,
+      );
+
+      if (!hasFaceID && !hasTouchID) {
+        Alert.alert(
+          "Biometric Not Available",
+          "Please set up Face ID or Touch ID in your device Settings first.",
+        );
+        return;
+      }
+
+      const biometricType = hasFaceID
+        ? "Face ID"
+        : hasTouchID
+          ? "Touch ID"
+          : "Biometric";
+
       // Request biometric authentication to trigger permission
       console.log("[Biometric Setup] Requesting biometric authentication...");
       const result = await LocalAuthentication.authenticateAsync({
-        promptMessage: "Authenticate to confirm biometric setup",
+        promptMessage: `Authenticate with ${biometricType} to enable biometric login`,
         fallbackLabel: "Cancel",
-        disableDeviceFallback: false,
+        cancelLabel: "Cancel",
+        disableDeviceFallback: true,
       });
       console.log("[Biometric Setup] Authentication result:", result);
 
@@ -186,51 +208,112 @@ export default function SettingsScreen() {
 
     Alert.alert(
       "Export Passwords",
-      "This will export all your passwords as an encrypted JSON file. Keep this file secure!",
+      "Choose export format:",
       [
         { text: "Cancel", style: "cancel" },
         {
-          text: "Export",
-          onPress: async () => {
-            setIsExporting(true);
-            try {
-              const vaultJson =
-                await StorageService.exportVault(masterPassword);
-              const fileName = `securepass_backup_${Date.now()}.json`;
-
-              if (Platform.OS === "web") {
-                // Web download
-                const blob = new Blob([vaultJson], {
-                  type: "application/json",
-                });
-                const url = URL.createObjectURL(blob);
-                const a = document.createElement("a");
-                a.href = url;
-                a.download = fileName;
-                a.click();
-                URL.revokeObjectURL(url);
-                Alert.alert("Success", "Backup file downloaded");
-              } else {
-                // Mobile share
-                const fileUri = `${FileSystem.documentDirectory}${fileName}`;
-                await FileSystem.writeAsStringAsync(fileUri, vaultJson);
-
-                await Share.share({
-                  url: fileUri,
-                  message: "SecurePass Backup",
-                });
-                Alert.alert("Success", "Backup file created");
-              }
-            } catch (error) {
-              console.error("Export error:", error);
-              Alert.alert("Error", "Failed to export passwords");
-            } finally {
-              setIsExporting(false);
-            }
-          },
+          text: "ℹ️ Encrypted (Recommended)",
+          onPress: () => showEncryptedInfo(),
+        },
+        {
+          text: "ℹ️ Decrypted (Plain Text)",
+          onPress: () => showDecryptedInfo(),
         },
       ],
     );
+  };
+
+  const showEncryptedInfo = () => {
+    Alert.alert(
+      "🔒 Encrypted Export",
+      "Your passwords will be exported in an encrypted format.\n\n✓ Secure - Requires master password to import\n✓ Safe to share via cloud/email\n✓ Protected from unauthorized access\n\nRecommended for backups and transfers.",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Export Encrypted",
+          onPress: () => performExport(true),
+        },
+      ],
+    );
+  };
+
+  const showDecryptedInfo = () => {
+    Alert.alert(
+      "⚠️ Decrypted Export",
+      "Your passwords will be exported in PLAIN TEXT format.\n\n⚠️ NOT SECURE - Anyone can read your passwords\n⚠️ Use only for migration or debugging\n⚠️ Delete immediately after use\n\nAre you sure you want to continue?",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Export Decrypted",
+          style: "destructive",
+          onPress: () => performExport(false),
+        },
+      ],
+    );
+  };
+
+  const performExport = async (encrypted: boolean) => {
+    if (!masterPassword) return;
+    
+    setIsExporting(true);
+    try {
+      let vaultJson: string;
+      let fileName: string;
+
+      if (encrypted) {
+        vaultJson = await StorageService.exportVault(masterPassword);
+        fileName = `securepass_encrypted_${Date.now()}.json`;
+      } else {
+        // Export decrypted vault
+        const vault = await StorageService.loadVault(masterPassword);
+        vaultJson = JSON.stringify(vault, null, 2);
+        fileName = `securepass_decrypted_${Date.now()}.json`;
+      }
+
+      if (Platform.OS === "web") {
+        // Web download
+        const blob = new Blob([vaultJson], {
+          type: "application/json",
+        });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = fileName;
+        a.click();
+        URL.revokeObjectURL(url);
+        Alert.alert("Success", "Backup file downloaded");
+      } else {
+        // Mobile share - use cache directory for temporary sharing
+        const file = new File(Paths.cache, fileName);
+        
+        // Create the file first
+        file.create({ overwrite: true });
+        
+        // Write the content
+        file.write(vaultJson);
+
+        // Check if sharing is available
+        const isAvailable = await Sharing.isAvailableAsync();
+        if (isAvailable) {
+          await Sharing.shareAsync(file.uri, {
+            mimeType: "application/json",
+            dialogTitle: encrypted ? "Export Encrypted Backup" : "Export Decrypted Backup",
+            UTI: "public.json",
+          });
+          Alert.alert("Success", "Backup file shared successfully");
+        } else {
+          Alert.alert(
+            "Error",
+            "Sharing is not available on this device"
+          );
+        }
+      }
+    } catch (error) {
+      console.error("Export error:", error);
+      Alert.alert("Error", "Failed to export passwords");
+    } finally {
+      setIsExporting(false);
+    }
   };
 
   const handleImport = async () => {
@@ -307,7 +390,8 @@ export default function SettingsScreen() {
       }
 
       const fileUri = result.assets[0].uri;
-      const fileContent = await FileSystem.readAsStringAsync(fileUri);
+      const file = new File(fileUri);
+      const fileContent = await file.text();
 
       // Use the import password to decrypt, then save with current master password
       await StorageService.importVault(
@@ -343,7 +427,7 @@ export default function SettingsScreen() {
   const handleClearData = () => {
     Alert.alert(
       "Clear All Data",
-      "⚠️ WARNING: This will permanently delete your account and all saved passwords. This action cannot be undone!",
+      "⚠️ WARNING: This will permanently delete your account and all saved passwords. This action cannot be undone!\n\n🔒 NOTE: This is the ONLY way to clear your data. Clearing app data from system settings will NOT work - your data is protected.",
       [
         { text: "Cancel", style: "cancel" },
         {
