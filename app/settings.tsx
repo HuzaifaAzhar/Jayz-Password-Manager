@@ -6,20 +6,20 @@ import { Ionicons } from "@expo/vector-icons";
 import * as DocumentPicker from "expo-document-picker";
 import { File, Paths } from "expo-file-system";
 import * as LocalAuthentication from "expo-local-authentication";
-import * as Sharing from "expo-sharing";
 import { useRouter } from "expo-router";
+import * as Sharing from "expo-sharing";
 import React, { useEffect, useState } from "react";
 import {
-  Alert,
-  Modal,
-  Platform,
-  ScrollView,
-  StyleSheet,
-  Switch,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View,
+    Alert,
+    Modal,
+    Platform,
+    ScrollView,
+    StyleSheet,
+    Switch,
+    Text,
+    TextInput,
+    TouchableOpacity,
+    View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
@@ -206,21 +206,17 @@ export default function SettingsScreen() {
   const handleExport = async () => {
     if (!masterPassword) return;
 
-    Alert.alert(
-      "Export Passwords",
-      "Choose export format:",
-      [
-        { text: "Cancel", style: "cancel" },
-        {
-          text: "ℹ️ Encrypted (Recommended)",
-          onPress: () => showEncryptedInfo(),
-        },
-        {
-          text: "ℹ️ Decrypted (Plain Text)",
-          onPress: () => showDecryptedInfo(),
-        },
-      ],
-    );
+    Alert.alert("Export Passwords", "Choose export format:", [
+      { text: "Cancel", style: "cancel" },
+      {
+        text: "ℹ️ Encrypted (Recommended)",
+        onPress: () => showEncryptedInfo(),
+      },
+      {
+        text: "ℹ️ Decrypted (Plain Text)",
+        onPress: () => showDecryptedInfo(),
+      },
+    ]);
   };
 
   const showEncryptedInfo = () => {
@@ -254,7 +250,7 @@ export default function SettingsScreen() {
 
   const performExport = async (encrypted: boolean) => {
     if (!masterPassword) return;
-    
+
     setIsExporting(true);
     try {
       let vaultJson: string;
@@ -285,10 +281,10 @@ export default function SettingsScreen() {
       } else {
         // Mobile share - use cache directory for temporary sharing
         const file = new File(Paths.cache, fileName);
-        
+
         // Create the file first
         file.create({ overwrite: true });
-        
+
         // Write the content
         file.write(vaultJson);
 
@@ -297,15 +293,14 @@ export default function SettingsScreen() {
         if (isAvailable) {
           await Sharing.shareAsync(file.uri, {
             mimeType: "application/json",
-            dialogTitle: encrypted ? "Export Encrypted Backup" : "Export Decrypted Backup",
+            dialogTitle: encrypted
+              ? "Export Encrypted Backup"
+              : "Export Decrypted Backup",
             UTI: "public.json",
           });
           Alert.alert("Success", "Backup file shared successfully");
         } else {
-          Alert.alert(
-            "Error",
-            "Sharing is not available on this device"
-          );
+          Alert.alert("Error", "Sharing is not available on this device");
         }
       }
     } catch (error) {
